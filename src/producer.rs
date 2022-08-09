@@ -5,6 +5,7 @@ use datafusion::{
 };
 
 use substrait::protobuf::{
+    aggregate_rel::Grouping,
     expression::{
         field_reference::ReferenceType,
         literal::LiteralType,
@@ -14,7 +15,7 @@ use substrait::protobuf::{
     function_argument::ArgType,
     read_rel::{NamedTable, ReadType},
     rel::RelType,
-    Expression, FilterRel, FunctionArgument, NamedStruct, ProjectRel, ReadRel, Rel,
+    AggregateRel, Expression, FilterRel, FunctionArgument, NamedStruct, ProjectRel, ReadRel, Rel,
 };
 /// Convert DataFusion LogicalPlan to Substrait Rel
 pub fn to_substrait_rel(plan: &LogicalPlan) -> Result<Box<Rel>> {
@@ -86,6 +87,31 @@ pub fn to_substrait_rel(plan: &LogicalPlan) -> Result<Box<Rel>> {
                     advanced_extension: None,
                 }))),
             }))
+        }
+        LogicalPlan::Aggregate(agg) => {
+            let input = to_substrait_rel(agg.input.as_ref())?;
+            let grouping_expressions = agg
+                .group_expr
+                .iter()
+                .map(|e| to_substrait_rex(e, agg.input.schema()))
+                .collect::<Result<Vec<_>>>()?;
+            Ok(Box::new(Rel {
+                rel_type: Some(RelType::Aggregate(Box::new(AggregateRel {
+                    common: None,
+                    input: Some(input),
+                    groupings: vec![Grouping {
+                        grouping_expressions,
+                    }],
+                    measures: vec![], //TODO
+                    advanced_extension: None,
+                }))),
+            }))
+            /*
+            agg.group_expr.iter().map(|e| {
+                        to_substrait_rex(e, agg.input.schema()).and_then(|e| AggregateRel {
+                            advanced_extension: None,common: None, groupings: vec![],
+                        })
+             */
         }
         _ => Err(DataFusionError::NotImplemented(format!(
             "Unsupported operator: {:?}",
