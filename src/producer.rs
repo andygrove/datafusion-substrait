@@ -3,8 +3,10 @@ use datafusion::{
     logical_plan::{DFSchemaRef, Expr, LogicalPlan, Operator},
     scalar::ScalarValue,
 };
+use datafusion::logical_expr::AggregateFunction;
 
 use substrait::protobuf::{
+    self,
     aggregate_rel::Grouping,
     expression::{
         field_reference::ReferenceType,
@@ -221,3 +223,16 @@ pub fn to_substrait_rex(expr: &Expr, schema: &DFSchemaRef) -> Result<Expression>
         ))),
     }
 }
+
+pub fn to_substrait_aggr_rex(expr: &Expr, schema: &DFSchemaRef) -> Result<protobuf::AggregateFunction> {
+    Ok(protobuf::AggregateFunction {
+        function_reference: 0,
+        arguments: vec![],
+        output_type: None, // return type
+        phase: 3, // AGGREGATION_PHASE_INITIAL_TO_RESULT
+        sorts: vec![],
+        invocation: 1, //AggregationInvocation::AGGREGATION_INVOCATION_ALL=1 / AGGREGATION_INVOCATION_DISTINCT=2
+        args: vec![], // deprecated - use arguments instead
+    })
+}
+
